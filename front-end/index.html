@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Anomaly Detection Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f0f2f5;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+
+      .card-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0 0 20px 0;
+        color: #1a1a1a;
+      }
+
+      .chart-container {
+        position: relative;
+        height: 400px;
+        width: 100%;
+      }
+
+      .anomaly-list {
+        margin-top: 20px;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
+      .anomaly-item {
+        display: flex;
+        align-items: center;
+        padding: 12px;
+        margin-bottom: 8px;
+        background-color: #fff1f0;
+        border-radius: 6px;
+        border: 1px solid #ffccc7;
+      }
+
+      .anomaly-icon {
+        color: #ff4d4f;
+        margin-right: 12px;
+      }
+
+      .anomaly-details {
+        flex: 1;
+      }
+
+      .anomaly-time {
+        font-weight: 500;
+        color: #1a1a1a;
+      }
+
+      .anomaly-values {
+        font-size: 0.875rem;
+        color: #666;
+        margin-top: 4px;
+      }
+
+      .status-indicator {
+        padding: 8px;
+        margin-bottom: 16px;
+        border-radius: 4px;
+        font-size: 0.875rem;
+      }
+
+      .status-connected {
+        background-color: #f6ffed;
+        border: 1px solid #b7eb8f;
+        color: #52c41a;
+      }
+
+      .status-disconnected {
+        background-color: #fff2e8;
+        border: 1px solid #ffbb96;
+        color: #fa541c;
+      }
+
+      .controls {
+        margin-bottom: 20px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .button {
+        padding: 8px 16px;
+        border-radius: 4px;
+        border: 1px solid #d9d9d9;
+        background: white;
+        cursor: pointer;
+      }
+
+      .button:hover {
+        background: #f5f5f5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card">
+        <h2 class="card-title">Real-time Data Stream with Anomalies</h2>
+        <div class="controls">
+          <button id="pauseButton" class="button">Pause</button>
+        </div>
+        <div id="dataStreamStatus" class="status-indicator">
+          Connecting to data stream...
+        </div>
+        <div class="chart-container">
+          <canvas id="dataChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Recent Anomalies</h2>
+        <div id="anomalyStreamStatus" class="status-indicator">
+          Connecting to anomaly stream...
+        </div>
+        <div id="anomalyList" class="anomaly-list">
+          <div style="color: #666; text-align: center">
+            No anomalies detected yet
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let MAX_POINTS = 50;
+      let dataChart;
+      let latestAnomalies = [];
+      let isPaused = false;
+      let dataBuffer = [];
+      let anomalyBuffer = [];
+      const ANNOTATION_LIFETIME = 60000; // Annotations will stay visible for 60 seconds
+      let annotations = new Map(); // Store annotations with their creation time
+
+      // Initialize Chart.js
+      function initChart() {
+        const ctx = document.getElementById("dataChart").getContext("2d");
+        dataChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Data Points",
+                data: [],
+                borderColor: "rgb(59, 130, 246)",
+                tension: 0.1,
+                pointRadius: 0,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+              duration: 2000, // Slower animation
+            },
+            scales: {
+              x: {
+                ticks: {
+                  maxTicksLimit: 10,
+                },
+              },
+              y: {
+                beginAtZero: false,
+              },
+            },
+            plugins: {
+              legend: {
+                display: false,
+              },
+              annotation: {
+                annotations: {},
+              },
+            },
+          },
+        });
+      }
+
+      // Update status indicators
+      function updateStatus(elementId, connected) {
+        const element = document.getElementById(elementId);
+        if (connected) {
+          element.textContent = "Connected to stream";
+          element.className = "status-indicator status-connected";
+        } else {
+          element.textContent = "Disconnected - attempting to reconnect...";
+          element.className = "status-indicator status-disconnected";
+        }
+      }
+
+      // Update anomaly list
+      function updateAnomalyList() {
+        const anomalyList = document.getElementById("anomalyList");
+        if (latestAnomalies.length === 0) {
+          anomalyList.innerHTML =
+            '<div style="color: #666; text-align: center;">No anomalies detected yet</div>';
+          return;
+        }
+
+        anomalyList.innerHTML = latestAnomalies
+          .map(
+            (anomaly) => `
+                <div class="anomaly-item">
+                    <div class="anomaly-icon">⚠️</div>
+                    <div class="anomaly-details">
+                        <div class="anomaly-time">
+                            Anomaly detected at ${anomaly.timestamp}
+                        </div>
+                        <div class="anomaly-values">
+                            Value: ${anomaly.value.toFixed(2)} 
+                            (Mean: ${anomaly.mean.toFixed(2)}, 
+                            Std Dev: ${anomaly.stdDev.toFixed(2)})
+                        </div>
+                    </div>
+                </div>
+            `
+          )
+          .join("");
+      }
+
+      // Process data point
+      function processDataPoint(newData) {
+        if (isPaused) {
+          dataBuffer.push(newData);
+          return;
+        }
+
+        const timestamp = new Date(
+          newData.timestamp * 1000
+        ).toLocaleTimeString();
+
+        dataChart.data.labels.push(timestamp);
+        dataChart.data.datasets[0].data.push(newData.value);
+
+        // Keep only the last MAX_POINTS points
+        if (dataChart.data.labels.length > MAX_POINTS) {
+          dataChart.data.labels.shift();
+          dataChart.data.datasets[0].data.shift();
+        }
+
+        // Clean up old annotations
+        const now = Date.now();
+        for (const [id, data] of annotations) {
+          if (now - data.timestamp > ANNOTATION_LIFETIME) {
+            annotations.delete(id);
+          }
+        }
+
+        // Update chart annotations
+        dataChart.options.plugins.annotation = {
+          annotations: Array.from(annotations.values()).map((data) => ({
+            type: "line",
+            xMin: data.timestamp,
+            xMax: data.timestamp,
+            borderColor: "rgba(255, 0, 0, 0.5)",
+            borderWidth: 2,
+          })),
+        };
+
+        dataChart.update("none");
+      }
+
+      // Connect to data stream
+      function connectToDataStream() {
+        const dataSource = new EventSource("http://localhost:8000/stream_data");
+
+        dataSource.onopen = () => {
+          updateStatus("dataStreamStatus", true);
+        };
+
+        dataSource.onmessage = (event) => {
+          const newData = JSON.parse(event.data);
+          setTimeout(() => processDataPoint(newData), 1000); // Add slight delay for smoother visualization
+        };
+
+        dataSource.onerror = () => {
+          updateStatus("dataStreamStatus", false);
+          dataSource.close();
+          setTimeout(connectToDataStream, 60000);
+        };
+      }
+
+      // Process anomaly
+      function processAnomaly(newAnomaly) {
+        if (isPaused) {
+          anomalyBuffer.push(newAnomaly);
+          return;
+        }
+
+        const timestamp = new Date(
+          newAnomaly.timestamp * 1000
+        ).toLocaleTimeString();
+
+        latestAnomalies.unshift({
+          timestamp: timestamp,
+          value: newAnomaly.value,
+          mean: newAnomaly.mean,
+          stdDev: newAnomaly.std_dev,
+        });
+
+        // Keep more anomalies in the list
+        if (latestAnomalies.length > 20) {
+          latestAnomalies.pop();
+        }
+
+        updateAnomalyList();
+
+        // Add annotation with timestamp
+        const annotationId = `anomaly-${Date.now()}`;
+        annotations.set(annotationId, {
+          timestamp: timestamp,
+          timestamp: Date.now(),
+        });
+      }
+
+      // Connect to anomaly stream
+      function connectToAnomalyStream() {
+        const anomalySource = new EventSource(
+          "http://localhost:8000/stream_anomalies"
+        );
+
+        anomalySource.onopen = () => {
+          updateStatus("anomalyStreamStatus", true);
+        };
+
+        anomalySource.onmessage = (event) => {
+          const newAnomaly = JSON.parse(event.data);
+          processAnomaly(newAnomaly);
+        };
+
+        anomalySource.onerror = () => {
+          updateStatus("anomalyStreamStatus", false);
+          anomalySource.close();
+          setTimeout(connectToAnomalyStream, 60000);
+        };
+      }
+
+      // Initialize everything when the page loads
+      window.onload = function () {
+        initChart();
+        connectToDataStream();
+        connectToAnomalyStream();
+
+        // Set up controls
+        document
+          .getElementById("pauseButton")
+          .addEventListener("click", function () {
+            isPaused = !isPaused;
+            this.textContent = isPaused ? "Resume" : "Pause";
+
+            if (!isPaused) {
+              // Process buffered data
+              dataBuffer.forEach(processDataPoint);
+              anomalyBuffer.forEach(processAnomaly);
+              dataBuffer = [];
+              anomalyBuffer = [];
+            }
+          });
+      };
+    </script>
+  </body>
+</html>

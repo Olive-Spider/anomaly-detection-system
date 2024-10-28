@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "ml-interview"
+version = "0.1.0"
+description = ""
+authors = ["byron <isaacbyron@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+fastapi = "^0.115.3"
+requests = "^2.32.3"
+uvicorn = "^0.32.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+

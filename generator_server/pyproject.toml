@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "generator-server"
+version = "0.1.0"
+description = "This is the generator that will create the streamming data"
+authors = ["byron <isaacbyron@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9.6"
+fastapi = "^0.115.3"
+uvicorn = "^0.32.0"
+
+[tool.poetry.group.dev.dependencies]
+fastapi = "^0.115.3"
+uvicorn = "^0.32.0"
+python = "^3.9.6"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
