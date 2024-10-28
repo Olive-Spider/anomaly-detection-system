@@ -109,6 +109,70 @@ The system consists of two independent services, both built using FastAPI:
                 }
               ]
               ```
+
+        - `/stream_data`
+            - **Method**: GET
+            - **Description**: Streams data from a log file to clients in real-time.
+            - **Response**:
+              ```json
+              [
+                {
+                    "value": 100.5,
+                    "timestamp": 1698401060.0,
+                    "mean": 45.0,
+                    "std_dev": 2.5
+                }
+                {
+                    "value": 98.2,
+                    "timestamp": 1698401070.0,
+                    "mean": 46.1,
+                    "std_dev": 2.7
+                }
+              ]
+              ```
+
+        - `/stream_anomalies`
+            - **Method**: GET
+            - **Description**: Streams real-time anomaly data from `anomaly_log_file`. Each new anomaly record in the file is sent to the client as an event as soon as it’s available.
+            - **Response**:
+              ```json
+              [
+                {
+                    "value": 102.3,
+                    "timestamp": 1698402060.0,
+                    "mean": 50.0,
+                    "std_dev": 3.0
+                }
+                {
+                    "value": 105.7,
+                    "timestamp": 1698402070.0,
+                    "mean": 51.2,
+                    "std_dev": 2.9
+                }
+              ]
+              ```
+
+        - `/read_log`
+            - **Method**: GET
+            - **Description**: Retrieves all logged anomaly data from `anomaly_log_file` in JSON format.
+            - **Response**:
+              ```json
+              [
+                {
+                   "value": 102.3,
+                   "timestamp": 1698402060.0,
+                   "mean": 50.0,
+                   "std_dev": 3.0 
+                },
+                {
+                    "value": 105.7,
+                    "timestamp": 1698402070.0,
+                    "mean": 51.2,
+                    "std_dev": 2.9 
+                }
+              ]
+              ```
+
     - **Configuration Parameters**:
         - `window_size`: Number of recent data points to calculate the moving average.
         - `threshold_multiplier`: Multiplier of the standard deviation used to determine if a point is anomalous.
@@ -164,33 +228,35 @@ if __name__ == "__main__":
 
 **This project consists of three components that need to be running simultaneously**:
 
-- Anomaly Detection Server
-- Data Generator Server
-- Frontend Interface
+   - Anomaly Detection Server
+   - Data Generator Server
+   - Frontend Interface
 
 ### Begin by running both servers
 
 #### On Windows:
-anomaly_server:
+
 ```bash
-	cd anomaly_server
-	python -m uvicorn main:app --reload
+#anomaly_server:
+cd anomaly_server
+python -m uvicorn main:app --reload
 ```
-generator_server:
+
 ```bash
-	cd generator_server
-	python -m uvicorn main:app --port 8080 --reload
+#generator_server:
+cd generator_server
+python -m uvicorn main:app --port 8080 --reload
 ```
 
 #### On Mac/Linux
-anomaly_server:
 ```bash
-	cd anomaly_server && uvicorn main:app --reload
+#anomaly_server:
+cd anomaly_server && uvicorn main:app --reload
 ```
 
-generator_server:
 ```bash
-	cd generator_server && uvicorn main:app --port 8080 --reload
+#generator_server:
+cd generator_server && uvicorn main:app --port 8080 --reload
 ```
 
 ### Run your Frontend/HTML server
@@ -205,9 +271,9 @@ Then open http://localhost:3000 in your browser.
 #### Option 2: Using VS Code
 If you're using Visual Studio Code, you can use the Live Server extension:
 
-- Install the "Live Server" extension
-- Right-click on frontend/index.html
-- Select "Open with Live Server"
+   - Install the "Live Server" extension
+   - Right-click on frontend/index.html
+   - Select "Open with Live Server"
 
 #### Option 3: Direct File Access
 Open `frontend/index.html` directly in your web browser.
@@ -215,15 +281,16 @@ Open `frontend/index.html` directly in your web browser.
 
 ### Verifying the Setup
 
-All three components should be running simultaneously
+All three components should be running simultaneously.
+
 Check the following URLs are accessible:
 
-- Anomaly Server: http://localhost:8000
-- Generator Server: http://localhost:8080
-- Frontend: Depends on chosen method
+   - Anomaly Server: http://localhost:8000
+   - Generator Server: http://localhost:8080
+   - Frontend: Depends on chosen method
 
 ### Troubleshooting
 
-- **If you see "Address already in use" errors, ensure no other services are running on ports 8000 or 8080**
-- **For CORS issues, verify that both servers are running and configured to accept requests from the frontend origin**
-- **Check terminal outputs for any error messages from the servers**
+   - **If you see "Address already in use" errors, ensure no other services are running on ports 8000 or 8080**
+   - **For CORS issues, verify that both servers are running and configured to accept requests from the frontend origin**
+   - **Check terminal outputs for any error messages from the servers**
