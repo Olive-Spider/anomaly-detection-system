@@ -160,23 +160,70 @@ if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
 ```
 
-### To Run Project
+### Running The Project
+
+**This project consists of three components that need to be running simultaneously**:
+
+- Anomaly Detection Server
+- Data Generator Server
+- Frontend Interface
+
 ### Begin by running both servers
-### On Windows:
+
+#### On Windows:
 anomaly_server:
+```bash
 	cd anomaly_server
 	python -m uvicorn main:app --reload
-
+```
 generator_server:
+```bash
 	cd generator_server
 	python -m uvicorn main:app --port 8080 --reload
+```
 
-### On Mac/Linux
+#### On Mac/Linux
 anomaly_server:
+```bash
 	cd anomaly_server && uvicorn main:app --reload
+```
 
 generator_server:
+```bash
 	cd generator_server && uvicorn main:app --port 8080 --reload
+```
 
-#### Run your HTML server
-Run front-end/index.html for visualization.
+### Run your Frontend/HTML server
+#### Option 1: Using Python's Built-in Server
+```bash
+# From the project root directory
+cd frontend
+python -m http.server 3000
+```
+Then open http://localhost:3000 in your browser.
+
+#### Option 2: Using VS Code
+If you're using Visual Studio Code, you can use the Live Server extension:
+
+- Install the "Live Server" extension
+- Right-click on frontend/index.html
+- Select "Open with Live Server"
+
+#### Option 3: Direct File Access
+Open `frontend/index.html` directly in your web browser.
+**Note: Some browsers may restrict API calls when using direct file access.**
+
+### Verifying the Setup
+
+All three components should be running simultaneously
+Check the following URLs are accessible:
+
+- Anomaly Server: http://localhost:8000
+- Generator Server: http://localhost:8080
+- Frontend: Depends on chosen method
+
+### Troubleshooting
+
+- **If you see "Address already in use" errors, ensure no other services are running on ports 8000 or 8080**
+- **For CORS issues, verify that both servers are running and configured to accept requests from the frontend origin**
+- **Check terminal outputs for any error messages from the servers**
